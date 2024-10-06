@@ -61,6 +61,7 @@ _Static_assert(sizeof(b64) == 8, "sizeof(b64) must be 8");
 
 static b32 s_is_running = 1;
 static b32 s_use_vsync = 0;
+static b32 s_did_resize = 0;
 static HWND s_window = 0;
 static ID3D11Device *s_gfx_device = 0;
 static ID3D11DeviceContext *s_gfx_context = 0;
@@ -82,10 +83,15 @@ static LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPAR
         s_is_running = (wparam != VK_ESCAPE);
         result = DefWindowProcW(hwnd, msg, wparam, lparam);
     } break;
+    case WM_SIZE:
+    {
+        s_did_resize = 1;
+        result = DefWindowProcW(hwnd, msg, wparam, lparam);
+    } break;
     default:
     {
         result = DefWindowProcW(hwnd, msg, wparam, lparam);
-    }
+    } break;
     }
     return result;
 }
@@ -225,12 +231,26 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             }
         }
 
+        if (s_did_resize)
+        {
+            s_gfx_context->lpVtbl->ClearState(s_gfx_context);
+            s_back_buffer_rtv->lpVtbl->Release(s_back_buffer_rtv);
+
+            ex11_CheckHR(s_swap_chain->lpVtbl->ResizeBuffers(s_swap_chain, 0, 0, 0, DXGI_FORMAT_UNKNOWN, 0));
+            
+            ID3D11Texture2D *back_buffer = 0;
+            ex11_CheckHR(s_swap_chain->lpVtbl->GetBuffer(s_swap_chain, 0, &IID_ID3D11Texture2D, &back_buffer));
+            ex11_CheckHR(s_gfx_device->lpVtbl->CreateRenderTargetView(s_gfx_device, (ID3D11Resource *)(back_buffer), 0, &s_back_buffer_rtv));
+            back_buffer->lpVtbl->Release(back_buffer);
+
+            s_did_resize = 0;
+        }
+
         // NOTE: render
         {
             float clear_color[] = { 0.1f, 0.2f, 0.6f, 1.0f };
             s_gfx_context->lpVtbl->ClearRenderTargetView(s_gfx_context, s_back_buffer_rtv, clear_color);
         }
-
 
         // NOTE: present
         {
