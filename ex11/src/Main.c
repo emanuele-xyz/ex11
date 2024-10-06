@@ -63,8 +63,8 @@ static b32 s_is_running = 1;
 static b32 s_use_vsync = 0;
 static b32 s_did_resize = 0;
 static HWND s_window = 0;
-static ID3D11Device *s_gfx_device = 0;
-static ID3D11DeviceContext *s_gfx_context = 0;
+static ID3D11Device *s_d3d_device = 0;
+static ID3D11DeviceContext *s_d3d_context = 0;
 static IDXGISwapChain1 *s_swap_chain = 0;
 static ID3D11RenderTargetView *s_back_buffer_rtv = 0;
 
@@ -151,7 +151,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             #endif
             D3D_FEATURE_LEVEL requested_lvl = D3D_FEATURE_LEVEL_11_0;
             D3D_FEATURE_LEVEL supported_lvl = 0;
-            ex11_CheckHR(D3D11CreateDevice(0, D3D_DRIVER_TYPE_HARDWARE, 0, flags, &requested_lvl, 1, D3D11_SDK_VERSION, &s_gfx_device, &supported_lvl, &s_gfx_context));
+            ex11_CheckHR(D3D11CreateDevice(0, D3D_DRIVER_TYPE_HARDWARE, 0, flags, &requested_lvl, 1, D3D11_SDK_VERSION, &s_d3d_device, &supported_lvl, &s_d3d_context));
             ex11_Check(requested_lvl == supported_lvl);
         }
 
@@ -160,7 +160,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
         {
             {
                 ID3D11Debug *dbg = 0;
-                ex11_CheckHR(s_gfx_device->lpVtbl->QueryInterface(s_gfx_device, &IID_ID3D11Debug, &dbg));
+                ex11_CheckHR(s_d3d_device->lpVtbl->QueryInterface(s_d3d_device, &IID_ID3D11Debug, &dbg));
                 ID3D11InfoQueue *queue = 0;
                 ex11_CheckHR(dbg->lpVtbl->QueryInterface(dbg, &IID_ID3D11InfoQueue, &queue));
                 queue->lpVtbl->SetBreakOnSeverity(queue, D3D11_MESSAGE_SEVERITY_CORRUPTION, 1);
@@ -184,7 +184,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             IDXGIAdapter *dxgi_adapter = 0;
             IDXGIFactory2 *dxgi_factory = 0;
 
-            ex11_CheckHR(s_gfx_device->lpVtbl->QueryInterface(s_gfx_device, &IID_IDXGIDevice, &dxgi_device));
+            ex11_CheckHR(s_d3d_device->lpVtbl->QueryInterface(s_d3d_device, &IID_IDXGIDevice, &dxgi_device));
             ex11_CheckHR(dxgi_device->lpVtbl->GetAdapter(dxgi_device, &dxgi_adapter));
             ex11_CheckHR(dxgi_adapter->lpVtbl->GetParent(dxgi_adapter, &IID_IDXGIFactory2, &dxgi_factory));
 
@@ -200,7 +200,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
             desc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
             desc.Flags = 0;
-            ex11_CheckHR(dxgi_factory->lpVtbl->CreateSwapChainForHwnd(dxgi_factory, (IUnknown *)(s_gfx_device), s_window, &desc, 0, 0, &s_swap_chain));
+            ex11_CheckHR(dxgi_factory->lpVtbl->CreateSwapChainForHwnd(dxgi_factory, (IUnknown *)(s_d3d_device), s_window, &desc, 0, 0, &s_swap_chain));
 
             // NOTE: disable Alt+Enter changing monitor resolution to match window size
             ex11_CheckHR(dxgi_factory->lpVtbl->MakeWindowAssociation(dxgi_factory, s_window, DXGI_MWA_NO_ALT_ENTER));
@@ -214,9 +214,62 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
         {
             ID3D11Texture2D *back_buffer = 0;
             ex11_CheckHR(s_swap_chain->lpVtbl->GetBuffer(s_swap_chain, 0, &IID_ID3D11Texture2D, &back_buffer));
-            ex11_CheckHR(s_gfx_device->lpVtbl->CreateRenderTargetView(s_gfx_device, (ID3D11Resource *)(back_buffer), 0, &s_back_buffer_rtv));
+            ex11_CheckHR(s_d3d_device->lpVtbl->CreateRenderTargetView(s_d3d_device, (ID3D11Resource *)(back_buffer), 0, &s_back_buffer_rtv));
             back_buffer->lpVtbl->Release(back_buffer);
         }
+    }
+
+    // NOTE: create vertex buffer
+    ID3D11Buffer *vertex_buffer = 0;
+    UINT vertex_count = 0;
+    UINT vertex_stride = 0;
+    //UINT vertex_offset = 0;
+    {
+        float data[] =
+        {
+            //  x,     y,   r,   g,   b,   a
+            +0.0f, +0.5f, 0.f, 1.f, 0.f, 1.f,
+            +0.5f, -0.5f, 1.f, 0.f, 0.f, 1.f,
+            -0.5f, -0.5f, 0.f, 0.f, 1.f, 1.f,
+        };
+        vertex_stride = 6 * sizeof(*data);
+        vertex_count = ex11_CountOf(data) / vertex_stride;
+
+        D3D11_BUFFER_DESC desc = { 0 };
+        desc.ByteWidth = sizeof(data);
+        desc.Usage = D3D11_USAGE_IMMUTABLE;
+        desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        //desc.CPUAccessFlags = ;
+        //desc.MiscFlags = ;
+        //desc.StructureByteStride = ;
+
+        D3D11_SUBRESOURCE_DATA initial_data = { 0 };
+        initial_data.pSysMem = data;
+        //initial_data.SysMemPitch = ;
+        //initial_data.SysMemSlicePitch = ;
+
+        ex11_CheckHR(s_d3d_device->lpVtbl->CreateBuffer(s_d3d_device, &desc, &initial_data, &vertex_buffer));
+    }
+
+    // NOTE: create vertex shader
+    //ID3D11VertexShader *vertex_shader = 0;
+    ID3DBlob *vertex_shader_blob = 0;
+    {
+        // TODO: load file into blob
+    }
+
+    // NOTE: create vertex layout
+    ID3D11InputLayout *input_layout = 0;
+    {
+        D3D11_INPUT_ELEMENT_DESC desc[] =
+        {
+            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,       0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        };
+
+        const void *vs_bytecode = vertex_shader_blob->lpVtbl->GetBufferPointer(vertex_shader_blob);
+        SIZE_T vs_bytecode_length = vertex_shader_blob->lpVtbl->GetBufferSize(vertex_shader_blob);
+        ex11_CheckHR(s_d3d_device->lpVtbl->CreateInputLayout(s_d3d_device, desc, ex11_CountOf(desc), vs_bytecode, vs_bytecode_length, &input_layout));
     }
 
     while (s_is_running)
@@ -233,14 +286,14 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
 
         if (s_did_resize)
         {
-            s_gfx_context->lpVtbl->ClearState(s_gfx_context);
+            s_d3d_context->lpVtbl->ClearState(s_d3d_context);
             s_back_buffer_rtv->lpVtbl->Release(s_back_buffer_rtv);
 
             ex11_CheckHR(s_swap_chain->lpVtbl->ResizeBuffers(s_swap_chain, 0, 0, 0, DXGI_FORMAT_UNKNOWN, 0));
-            
+
             ID3D11Texture2D *back_buffer = 0;
             ex11_CheckHR(s_swap_chain->lpVtbl->GetBuffer(s_swap_chain, 0, &IID_ID3D11Texture2D, &back_buffer));
-            ex11_CheckHR(s_gfx_device->lpVtbl->CreateRenderTargetView(s_gfx_device, (ID3D11Resource *)(back_buffer), 0, &s_back_buffer_rtv));
+            ex11_CheckHR(s_d3d_device->lpVtbl->CreateRenderTargetView(s_d3d_device, (ID3D11Resource *)(back_buffer), 0, &s_back_buffer_rtv));
             back_buffer->lpVtbl->Release(back_buffer);
 
             s_did_resize = 0;
@@ -249,7 +302,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
         // NOTE: render
         {
             float clear_color[] = { 0.1f, 0.2f, 0.6f, 1.0f };
-            s_gfx_context->lpVtbl->ClearRenderTargetView(s_gfx_context, s_back_buffer_rtv, clear_color);
+            s_d3d_context->lpVtbl->ClearRenderTargetView(s_d3d_context, s_back_buffer_rtv, clear_color);
         }
 
         // NOTE: present
@@ -274,10 +327,11 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
 
     // NOTE: release dxgi and d3d11 resources in order to avoid noisy logs in debug output
     #if defined(_DEBUG)
-    s_gfx_device->lpVtbl->Release(s_gfx_device);
-    s_gfx_context->lpVtbl->Release(s_gfx_context);
+    s_d3d_device->lpVtbl->Release(s_d3d_device);
+    s_d3d_context->lpVtbl->Release(s_d3d_context);
     s_swap_chain->lpVtbl->Release(s_swap_chain);
     s_back_buffer_rtv->lpVtbl->Release(s_back_buffer_rtv);
+    vertex_buffer->lpVtbl->Release(vertex_buffer);
     #endif
 
     return 0;
