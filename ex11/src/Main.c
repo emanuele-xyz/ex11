@@ -73,10 +73,11 @@ static LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
 int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cmdshow)
 {
-    ex11_Unused(hinst);
     ex11_Unused(hisnt_prev);
     ex11_Unused(cmdline);
     ex11_Unused(cmdshow);
+
+    ex11_Check(SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_SYSTEM_AWARE));
 
     // NOTE: register window class
     {
@@ -96,6 +97,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
 
         ex11_Check(RegisterClassEx(&wndclass));
     }
+
 
     // NOTE: create window
     {
