@@ -3,11 +3,13 @@
 #pragma warning(push)
 #pragma warning(disable : 4820) // NOTE: padding bytes added to the end of a struct
 #include <d3d11.h>
+#include <d3dcompiler.h>
 #include <dxgi1_3.h>
 #include <dxgidebug.h>
 #pragma warning(pop)
 
 #pragma comment(lib, "d3d11")
+#pragma comment(lib, "d3dcompiler")
 #pragma comment (lib, "dxgi")
 #pragma comment (lib, "dxguid")
 
@@ -76,7 +78,6 @@ static LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPAR
     case WM_CLOSE:
     {
         s_is_running = 0;
-        result = DefWindowProcW(hwnd, msg, wparam, lparam);
     } break;
     case WM_KEYDOWN:
     {
@@ -223,7 +224,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
     ID3D11Buffer *vertex_buffer = 0;
     UINT vertex_count = 0;
     UINT vertex_stride = 0;
-    //UINT vertex_offset = 0;
+    UINT vertex_offset = 0;
     {
         float data[] =
         {
@@ -233,7 +234,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             -0.5f, -0.5f, 0.f, 0.f, 1.f, 1.f,
         };
         vertex_stride = 6 * sizeof(*data);
-        vertex_count = ex11_CountOf(data) / vertex_stride;
+        vertex_count = sizeof(data) / vertex_stride;
 
         D3D11_BUFFER_DESC desc = { 0 };
         desc.ByteWidth = sizeof(data);
@@ -252,10 +253,24 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
     }
 
     // NOTE: create vertex shader
-    //ID3D11VertexShader *vertex_shader = 0;
+    ID3D11VertexShader *vertex_shader = 0;
     ID3DBlob *vertex_shader_blob = 0;
     {
-        // TODO: load file into blob
+        ex11_CheckHR(D3DReadFileToBlob(L"hlsl\\DefaultVS.cso", &vertex_shader_blob));
+        const void *bytecode = vertex_shader_blob->lpVtbl->GetBufferPointer(vertex_shader_blob);
+        SIZE_T bytecode_length = vertex_shader_blob->lpVtbl->GetBufferSize(vertex_shader_blob);
+        ex11_CheckHR(s_d3d_device->lpVtbl->CreateVertexShader(s_d3d_device, bytecode, bytecode_length, 0, &vertex_shader));
+    }
+
+    // NOTE: create pixel shader
+    ID3D11PixelShader *pixel_shader = 0;
+    {
+        ID3DBlob *blob = 0;
+        ex11_CheckHR(D3DReadFileToBlob(L"hlsl\\DefaultPS.cso", &blob));
+        const void *bytecode = blob->lpVtbl->GetBufferPointer(blob);
+        SIZE_T bytecode_length = blob->lpVtbl->GetBufferSize(blob);
+        ex11_CheckHR(s_d3d_device->lpVtbl->CreatePixelShader(s_d3d_device, bytecode, bytecode_length, 0, &pixel_shader));
+        blob->lpVtbl->Release(blob);
     }
 
     // NOTE: create vertex layout
@@ -303,6 +318,25 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
         {
             float clear_color[] = { 0.1f, 0.2f, 0.6f, 1.0f };
             s_d3d_context->lpVtbl->ClearRenderTargetView(s_d3d_context, s_back_buffer_rtv, clear_color);
+
+            RECT client_rect = { 0 };
+            ex11_Check(GetClientRect(s_window, &client_rect));
+            D3D11_VIEWPORT viewport = { 0 };
+            viewport.TopLeftX = 0.0f;
+            viewport.TopLeftY = 0.0f;
+            viewport.Width = (float)(client_rect.right - client_rect.left);
+            viewport.Height = (float)(client_rect.bottom - client_rect.top);
+            viewport.MinDepth = 0.0f;
+            viewport.MaxDepth = 1.0f;
+            
+            s_d3d_context->lpVtbl->RSSetViewports(s_d3d_context, 1, &viewport);
+            s_d3d_context->lpVtbl->OMSetRenderTargets(s_d3d_context, 1, &s_back_buffer_rtv, 0);
+            s_d3d_context->lpVtbl->IASetPrimitiveTopology(s_d3d_context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            s_d3d_context->lpVtbl->IASetInputLayout(s_d3d_context, input_layout);
+            s_d3d_context->lpVtbl->VSSetShader(s_d3d_context, vertex_shader, 0, 0);
+            s_d3d_context->lpVtbl->PSSetShader(s_d3d_context, pixel_shader, 0, 0);
+            s_d3d_context->lpVtbl->IASetVertexBuffers(s_d3d_context, 0, 1, &vertex_buffer, &vertex_stride, &vertex_offset);
+            s_d3d_context->lpVtbl->Draw(s_d3d_context, vertex_count, 0);
         }
 
         // NOTE: present
@@ -332,6 +366,10 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
     s_swap_chain->lpVtbl->Release(s_swap_chain);
     s_back_buffer_rtv->lpVtbl->Release(s_back_buffer_rtv);
     vertex_buffer->lpVtbl->Release(vertex_buffer);
+    vertex_shader->lpVtbl->Release(vertex_shader);
+    pixel_shader->lpVtbl->Release(pixel_shader);
+    vertex_shader_blob->lpVtbl->Release(vertex_shader_blob);
+    input_layout->lpVtbl->Release(input_layout);
     #endif
 
     return 0;
