@@ -16,6 +16,17 @@ inline void m4_translation(float *restrict a, float *restrict m)
 }
 
 /*
+    Writes into m the scaling matrix given by a
+*/
+inline void m4_scaling(float *restrict a, float *restrict m)
+{
+    m[0]  = a[0]; m[1]  = 0.0f; m[2]  = 0.0f; m[3]  = 0.0f;
+    m[4]  = 0.0f; m[5]  = a[1]; m[6]  = 0.0f; m[7]  = 0.0f;
+    m[8]  = 0.0f; m[9]  = 0.0f; m[10] = a[2]; m[11] = 0.0f;
+    m[12] = 0.0f; m[13] = 0.0f; m[14] = 0.0f; m[15] = 1.0f;
+}
+
+/*
     Writes into b the result of multiplying a by m
 */
 inline void v4m4_multiply(float *restrict a, float *restrict m, float *restrict b)

@@ -102,9 +102,9 @@ static LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cmdshow)
 {
     // ----------------------------------------------------------------------------------
-    float t[] = { 4.0f, 1.0f, 3.0f };
+    float s[] = { 4.0f, 2.0f, 3.0f };
     float m[16] = { 0 };
-    m4_translation(t, m);
+    m4_scaling(s, m);
 
     float v0[] = { 1.0f, 1.0f, 1.0f, 1.0f };
     float v1[4] = { 0 };
