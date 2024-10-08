@@ -226,14 +226,25 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
     UINT vertex_stride = 0;
     UINT vertex_offset = 0;
     {
+        /*
+            (-0.5, +0.5) +-----+ (+0.5, +0.5)
+                         | \   |
+                         |  \  |
+                         |   \ |
+            (-0.5, -0.5) +-----+ (+0.5, -0.5)
+        */
+
         float data[] =
         {
-            //  x,     y,   r,   g,   b,   a
-            +0.0f, +0.5f, 0.f, 1.f, 0.f, 1.f,
-            +0.5f, -0.5f, 1.f, 0.f, 0.f, 1.f,
-            -0.5f, -0.5f, 0.f, 0.f, 1.f, 1.f,
+            // x      y      z
+            -0.5f, +0.5f, 0.0f,
+            +0.5f, +0.5f, 0.0f,
+            +0.5f, -0.5f, 0.0f,
+            +0.5f, -0.5f, 0.0f,
+            -0.5f, -0.5f, 0.0f,
+            -0.5f, +0.5f, 0.0f,
         };
-        vertex_stride = 6 * sizeof(*data);
+        vertex_stride = 3 * sizeof(*data);
         vertex_count = sizeof(data) / vertex_stride;
 
         D3D11_BUFFER_DESC desc = { 0 };
@@ -278,8 +289,8 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
     {
         D3D11_INPUT_ELEMENT_DESC desc[] =
         {
-            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            //{ "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         };
 
         const void *vs_bytecode = vertex_shader_blob->lpVtbl->GetBufferPointer(vertex_shader_blob);
