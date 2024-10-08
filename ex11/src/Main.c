@@ -13,6 +13,8 @@
 #pragma comment (lib, "dxgi")
 #pragma comment (lib, "dxguid")
 
+#include <ex11/m4v4.h>
+
 #define ex11_Unused(x) (void)(x)
 #define ex11_Stringify(x) ex11_Str(x)
 #define ex11_Str(x) #x
@@ -99,6 +101,20 @@ static LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPAR
 
 int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cmdshow)
 {
+    // ----------------------------------------------------------------------------------
+    float t[] = { 4.0f, 1.0f, 3.0f };
+    float m[16] = { 0 };
+    m4_translation(t, m);
+
+    float v0[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    float v1[4] = { 0 };
+    v4m4_multiply(v0, m, v1);
+
+    int kek = 0;
+    ex11_Unused(kek);
+
+    // ----------------------------------------------------------------------------------
+
     ex11_Unused(hisnt_prev);
     ex11_Unused(cmdline);
     ex11_Unused(cmdshow);

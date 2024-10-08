@@ -26,4 +26,9 @@
   <ItemGroup>
     <None Include="hlsl\Default.hlsli" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\ex11\m4v4.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>
