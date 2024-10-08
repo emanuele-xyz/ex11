@@ -5,6 +5,17 @@
 */
 
 /*
+    Writes into m the identity matrix
+*/
+inline void m4_identity(float *restrict m)
+{
+    m[0]  = 1.0f; m[1]  = 0.0f; m[2]  = 0.0f; m[3]  = 0.0f;
+    m[4]  = 0.0f; m[5]  = 1.0f; m[6]  = 0.0f; m[7]  = 0.0f;
+    m[8]  = 0.0f; m[9]  = 0.0f; m[10] = 1.0f; m[11] = 0.0f;
+    m[12] = 0.0f; m[13] = 0.0f; m[14] = 0.0f; m[15] = 1.0f;
+}
+
+/*
    Writes into m the translation matrix given by a
 */
 inline void m4_translation(float *restrict a, float *restrict m)
