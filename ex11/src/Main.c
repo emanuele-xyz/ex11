@@ -240,9 +240,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             -0.5f, +0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
             +0.5f, +0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
             +0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
-            +0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
             -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
-            -0.5f, +0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
         };
         vertex_stride = 6 * sizeof(*data);
         vertex_count = sizeof(data) / vertex_stride;
@@ -261,6 +259,33 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
         //initial_data.SysMemSlicePitch = ;
 
         ex11_CheckHR(s_d3d_device->lpVtbl->CreateBuffer(s_d3d_device, &desc, &initial_data, &vertex_buffer));
+    }
+
+    // NOTE: create index buffer
+    ID3D11Buffer *index_buffer = 0;
+    UINT index_count = 0;
+    {
+        u32 data[] =
+        {
+            0, 1, 2,
+            2, 3, 0,
+        };
+        index_count = sizeof(data) / sizeof(data[0]);
+
+        D3D11_BUFFER_DESC desc = { 0 };
+        desc.ByteWidth = sizeof(data);
+        desc.Usage = D3D11_USAGE_IMMUTABLE;
+        desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        //desc.CPUAccessFlags = ;
+        //desc.MiscFlags = ;
+        //desc.StructureByteStride = ;
+
+        D3D11_SUBRESOURCE_DATA initial_data = { 0 };
+        initial_data.pSysMem = data;
+        //initial_data.SysMemPitch = ;
+        //initial_data.SysMemSlicePitch = ;
+
+        ex11_CheckHR(s_d3d_device->lpVtbl->CreateBuffer(s_d3d_device, &desc, &initial_data, &index_buffer));
     }
 
     // NOTE: create vertex shader
@@ -347,7 +372,9 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             s_d3d_context->lpVtbl->VSSetShader(s_d3d_context, vertex_shader, 0, 0);
             s_d3d_context->lpVtbl->PSSetShader(s_d3d_context, pixel_shader, 0, 0);
             s_d3d_context->lpVtbl->IASetVertexBuffers(s_d3d_context, 0, 1, &vertex_buffer, &vertex_stride, &vertex_offset);
-            s_d3d_context->lpVtbl->Draw(s_d3d_context, vertex_count, 0);
+            s_d3d_context->lpVtbl->IASetIndexBuffer(s_d3d_context, index_buffer, DXGI_FORMAT_R32_UINT, 0);
+            //s_d3d_context->lpVtbl->Draw(s_d3d_context, vertex_count, 0);
+            s_d3d_context->lpVtbl->DrawIndexed(s_d3d_context, index_count, 0, 0);
         }
 
         // NOTE: present
@@ -377,6 +404,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
     s_swap_chain->lpVtbl->Release(s_swap_chain);
     s_back_buffer_rtv->lpVtbl->Release(s_back_buffer_rtv);
     vertex_buffer->lpVtbl->Release(vertex_buffer);
+    index_buffer->lpVtbl->Release(index_buffer);
     vertex_shader->lpVtbl->Release(vertex_shader);
     pixel_shader->lpVtbl->Release(pixel_shader);
     vertex_shader_blob->lpVtbl->Release(vertex_shader_blob);
