@@ -278,8 +278,8 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
     {
         D3D11_INPUT_ELEMENT_DESC desc[] =
         {
-            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,       0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         };
 
         const void *vs_bytecode = vertex_shader_blob->lpVtbl->GetBufferPointer(vertex_shader_blob);
@@ -328,7 +328,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             viewport.Height = (float)(client_rect.bottom - client_rect.top);
             viewport.MinDepth = 0.0f;
             viewport.MaxDepth = 1.0f;
-            
+
             s_d3d_context->lpVtbl->RSSetViewports(s_d3d_context, 1, &viewport);
             s_d3d_context->lpVtbl->OMSetRenderTargets(s_d3d_context, 1, &s_back_buffer_rtv, 0);
             s_d3d_context->lpVtbl->IASetPrimitiveTopology(s_d3d_context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
