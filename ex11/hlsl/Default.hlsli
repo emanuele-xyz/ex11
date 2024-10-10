@@ -16,5 +16,6 @@ cbuffer Constants : register(b0)
     struct
     {
         matrix translation;
+        matrix scaling;
     } constants;
 }

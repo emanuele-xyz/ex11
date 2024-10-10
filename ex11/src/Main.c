@@ -70,6 +70,7 @@ _Static_assert(sizeof(b64) == 8, "sizeof(b64) must be 8");
 typedef struct Constants
 {
     float translation[16];
+    float scaling[16];
 } Constants;
 
 static b32 s_is_running = 1;
@@ -418,6 +419,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
         }
 
         float translation[3] = { sinf(2 * t_sec) * 0.25f, cosf(2 * t_sec) * 0.25f };
+        float scaling[3] = { 0.5f * sinf(2 * t_sec) + 1, 0.5f * cosf(2 * t_sec) + 1.0f, 1.0f };
 
         // NOTE: render
         {
@@ -427,6 +429,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
                 ex11_CheckHR(s_d3d_context->lpVtbl->Map(s_d3d_context, (ID3D11Resource*)(constant_buffer), 0, D3D11_MAP_WRITE_DISCARD, 0, &subres));
                 Constants *constants = subres.pData;
                 m4_translation(translation, constants->translation);
+                m4_scaling(scaling, constants->scaling);
                 s_d3d_context->lpVtbl->Unmap(s_d3d_context, (ID3D11Resource *)(constant_buffer), 0);
             }
 
