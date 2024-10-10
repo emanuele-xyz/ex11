@@ -13,6 +13,10 @@
 #pragma comment (lib, "dxgi")
 #pragma comment (lib, "dxguid")
 
+#pragma warning(disable : 4711) // NOTE: function selected for inline expansion
+
+#include <math.h> // sinf, cosf // TODO: to be removed
+
 #include <ex11/m4v4.h>
 
 #define ex11_Unused(x) (void)(x)
@@ -63,14 +67,33 @@ _Static_assert(sizeof(b16) == 2, "sizeof(b16) must be 2");
 _Static_assert(sizeof(b32) == 4, "sizeof(b32) must be 4");
 _Static_assert(sizeof(b64) == 8, "sizeof(b64) must be 8");
 
+typedef struct Constants
+{
+    float translation[16];
+} Constants;
+
 static b32 s_is_running = 1;
 static b32 s_use_vsync = 0;
 static b32 s_did_resize = 0;
+static i64 s_performance_counter_frequency = 0;
 static HWND s_window = 0;
 static ID3D11Device *s_d3d_device = 0;
 static ID3D11DeviceContext *s_d3d_context = 0;
 static IDXGISwapChain1 *s_swap_chain = 0;
 static ID3D11RenderTargetView *s_back_buffer_rtv = 0;
+
+static i64 get_performance_counter(void)
+{
+    LARGE_INTEGER tmp = { 0 };
+    ex11_Check(QueryPerformanceCounter(&tmp));
+    return tmp.QuadPart;
+}
+
+static float get_dt_sec(i64 perf_counter0, i64 perf_counter1)
+{
+    i64 d = perf_counter1 - perf_counter0;
+    return (float)(d) / (float)(s_performance_counter_frequency);
+}
 
 static LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -121,6 +144,13 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
     ex11_Unused(cmdshow);
 
     ex11_Check(SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_SYSTEM_AWARE));
+
+    // NOTE: get performance counter frequency
+    {
+        LARGE_INTEGER tmp = { 0 };
+        ex11_Check(QueryPerformanceFrequency(&tmp));
+        s_performance_counter_frequency = tmp.QuadPart;
+    }
 
     // NOTE: register window class
     {
@@ -244,20 +274,20 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
     UINT vertex_offset = 0;
     {
         /*
-            (-0.5, +0.5) +-----+ (+0.5, +0.5)
-                         | \   |
-                         |  \  |
-                         |   \ |
-            (-0.5, -0.5) +-----+ (+0.5, -0.5)
+            (-0.25, +0.25) +-----+ (+0.25, +0.25)
+                           | \   |
+                           |  \  |
+                           |   \ |
+            (-0.25, -0.25) +-----+ (+0.25, -0.25)
         */
 
         float data[] =
         {
             //x      y     z     r     g     b
-            -0.5f, +0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-            +0.5f, +0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
-            +0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
-            -0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,
+            -0.25f, +0.25f, 0.0f, 1.0f, 0.0f, 0.0f,
+            +0.25f, +0.25f, 0.0f, 0.0f, 1.0f, 0.0f,
+            +0.25f, -0.25f, 0.0f, 0.0f, 0.0f, 1.0f,
+            -0.25f, -0.25f, 0.0f, 0.0f, 1.0f, 0.0f,
         };
         vertex_stride = 6 * sizeof(*data);
         vertex_count = sizeof(data) / vertex_stride;
@@ -305,6 +335,20 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
         ex11_CheckHR(s_d3d_device->lpVtbl->CreateBuffer(s_d3d_device, &desc, &initial_data, &index_buffer));
     }
 
+    // NOTE: create constant buffer
+    ID3D11Buffer *constant_buffer = 0;
+    {
+        D3D11_BUFFER_DESC desc = { 0 };
+        desc.ByteWidth = sizeof(Constants);
+        desc.Usage = D3D11_USAGE_DYNAMIC;
+        desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        //desc.MiscFlags = ;
+        //desc.StructureByteStride = ;
+
+        ex11_CheckHR(s_d3d_device->lpVtbl->CreateBuffer(s_d3d_device, &desc, 0, &constant_buffer));
+    }
+
     // NOTE: create vertex shader
     ID3D11VertexShader *vertex_shader = 0;
     ID3DBlob *vertex_shader_blob = 0;
@@ -340,8 +384,14 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
         ex11_CheckHR(s_d3d_device->lpVtbl->CreateInputLayout(s_d3d_device, desc, ex11_CountOf(desc), vs_bytecode, vs_bytecode_length, &input_layout));
     }
 
+    i64 pc0 = get_performance_counter();
+    i64 pc1 = pc0;
+    float t_sec = 0; // time the application has been running
     while (s_is_running)
     {
+        float dt_sec = get_dt_sec(pc0, pc1);
+        t_sec += dt_sec;
+
         // NOTE: pump window messages
         {
             MSG msg = { 0 };
@@ -367,8 +417,19 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             s_did_resize = 0;
         }
 
+        float translation[3] = { sinf(2 * t_sec) * 0.25f, cosf(2 * t_sec) * 0.25f };
+
         // NOTE: render
         {
+            // NOTE: upload data to constant buffer
+            {
+                D3D11_MAPPED_SUBRESOURCE subres = { 0 };
+                ex11_CheckHR(s_d3d_context->lpVtbl->Map(s_d3d_context, (ID3D11Resource*)(constant_buffer), 0, D3D11_MAP_WRITE_DISCARD, 0, &subres));
+                Constants *constants = subres.pData;
+                m4_translation(translation, constants->translation);
+                s_d3d_context->lpVtbl->Unmap(s_d3d_context, (ID3D11Resource *)(constant_buffer), 0);
+            }
+
             float clear_color[] = { 0.2f, 0.3f, 0.3f, 1.0f };
             s_d3d_context->lpVtbl->ClearRenderTargetView(s_d3d_context, s_back_buffer_rtv, clear_color);
 
@@ -387,6 +448,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             s_d3d_context->lpVtbl->IASetPrimitiveTopology(s_d3d_context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             s_d3d_context->lpVtbl->IASetInputLayout(s_d3d_context, input_layout);
             s_d3d_context->lpVtbl->VSSetShader(s_d3d_context, vertex_shader, 0, 0);
+            s_d3d_context->lpVtbl->VSSetConstantBuffers(s_d3d_context, 0, 1, &constant_buffer);
             s_d3d_context->lpVtbl->PSSetShader(s_d3d_context, pixel_shader, 0, 0);
             s_d3d_context->lpVtbl->IASetVertexBuffers(s_d3d_context, 0, 1, &vertex_buffer, &vertex_stride, &vertex_offset);
             s_d3d_context->lpVtbl->IASetIndexBuffer(s_d3d_context, index_buffer, DXGI_FORMAT_R32_UINT, 0);
@@ -412,6 +474,9 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
             }
             #endif
         }
+
+        pc0 = pc1;
+        pc1 = get_performance_counter();
     }
 
     // NOTE: release dxgi and d3d11 resources in order to avoid noisy logs in debug output
@@ -422,6 +487,7 @@ int APIENTRY WinMain(HINSTANCE hinst, HINSTANCE hisnt_prev, PSTR cmdline, int cm
     s_back_buffer_rtv->lpVtbl->Release(s_back_buffer_rtv);
     vertex_buffer->lpVtbl->Release(vertex_buffer);
     index_buffer->lpVtbl->Release(index_buffer);
+    constant_buffer->lpVtbl->Release(constant_buffer);
     vertex_shader->lpVtbl->Release(vertex_shader);
     pixel_shader->lpVtbl->Release(pixel_shader);
     vertex_shader_blob->lpVtbl->Release(vertex_shader_blob);

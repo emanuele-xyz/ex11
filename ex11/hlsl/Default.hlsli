@@ -9,3 +9,12 @@ struct VS_Out
     float4 position : SV_Position;
     float3 color : COLOR;
 };
+
+
+cbuffer Constants : register(b0)
+{
+    struct
+    {
+        matrix translation;
+    } constants;
+}
